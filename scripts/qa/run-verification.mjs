@@ -207,7 +207,7 @@ async function main() {
     const testFile = path.join(tempDir, `${reportId}.spec.ts`);
     await writeFile(testFile, rewritten.content, 'utf8');
 
-    const result = await runPlaywright(testFile, rewritten.effectiveTargetUrl ?? targetUrl);
+    const result = await runPlaywright(testFile, targetUrl);
     const status = statusFromResult(result);
     const summary = status === 'fixed'
       ? 'Generated Playwright reproduction passed.'
