@@ -60,25 +60,39 @@ async function requestJson(pathname, options = {}) {
 
 function rewriteTargetUrl(content, nextTargetUrl) {
   if (!nextTargetUrl) return { content, effectiveTargetUrl: null };
+  const capturedUrlMatch = /const\s+capturedReportUrl\s*=\s*("([^"]+)"|'([^']+)');/.exec(content);
+  if (capturedUrlMatch) {
+    const originalUrl = capturedUrlMatch[2] ?? capturedUrlMatch[3] ?? '';
+    const effective = effectiveReplayTargetUrl(originalUrl, nextTargetUrl);
+    return {
+      content: content.replace(capturedUrlMatch[0], `const capturedReportUrl = ${JSON.stringify(effective)};`),
+      effectiveTargetUrl: effective,
+    };
+  }
+
   const match = /page\.goto\(("([^"]+)"|'([^']+)')\)/.exec(content);
   if (!match) return { content, effectiveTargetUrl: nextTargetUrl };
 
   const originalUrl = match[2] ?? match[3] ?? '';
-  let effective = nextTargetUrl;
-  try {
-    const original = new URL(originalUrl);
-    const target = new URL(nextTargetUrl);
-    if (target.pathname === '/' && !target.search && !target.hash) {
-      effective = `${target.origin}${original.pathname}${original.search}${original.hash}`;
-    }
-  } catch {
-    effective = nextTargetUrl;
-  }
+  const effective = effectiveReplayTargetUrl(originalUrl, nextTargetUrl);
 
   return {
     content: content.replace(match[0], `page.goto(${JSON.stringify(effective)})`),
     effectiveTargetUrl: effective,
   };
+}
+
+function effectiveReplayTargetUrl(originalUrl, nextTargetUrl) {
+  try {
+    const original = new URL(originalUrl);
+    const target = new URL(nextTargetUrl);
+    if (target.pathname === '/' && !target.search && !target.hash) {
+      return `${target.origin}${original.pathname}${original.search}${original.hash}`;
+    }
+  } catch {
+    return nextTargetUrl;
+  }
+  return nextTargetUrl;
 }
 
 function runPlaywright(testFile, reproBaseUrl = '') {
